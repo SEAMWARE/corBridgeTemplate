@@ -314,20 +314,22 @@ void tmplTransportClose(void)
 // An endpoint is a relative path of letters, digits, '_', '-', '.' and '/', with no '..' - a Channel
 // cannot reach out of the directory.
 //
-int tmplTransportEndpointAdd(const char* endpoint, BridgeDirection direction, bool text)
+int tmplTransportEndpointAdd(const char* endpoint, BridgeDirection direction, bool text, const char** whyP)
 {
   const char* allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./";
 
   if ((endpoint[0] == 0) || (endpoint[0] == '/') || (endpoint[strspn(endpoint, allowed)] != 0) || (strstr(endpoint, "..") != NULL))
   {
-    COR_E("tmpl: '%s' is not an endpoint - a relative file path, no '..'", endpoint);
+    *whyP = "not an endpoint of this transport - a relative file path, no '..'";
+    COR_E("tmpl: '%s': %s", endpoint, *whyP);
     return BRIDGE_BAD_INPUT;
   }
 
   char path[PATH_MAX];
   if (snprintf(path, sizeof(path), "%s/%s", dir, endpoint) >= (int) sizeof(path))
   {
-    COR_E("tmpl: '%s': the path is too long", endpoint);
+    *whyP = "the path is too long";
+    COR_E("tmpl: '%s': %s", endpoint, *whyP);
     return BRIDGE_BAD_INPUT;
   }
 
@@ -351,7 +353,8 @@ int tmplTransportEndpointAdd(const char* endpoint, BridgeDirection direction, bo
   if (freeP == NULL)
   {
     pthread_mutex_unlock(&mtx);
-    COR_E("tmpl: '%s': no room for another endpoint", endpoint);
+    *whyP = "no room for another endpoint";
+    COR_E("tmpl: '%s': %s", endpoint, *whyP);
     return BRIDGE_ERR;
   }
 

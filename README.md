@@ -1,5 +1,7 @@
 # corBridgeTemplate
 
+<!-- TODO: what this bridge carries, from where - this paragraph, "Where each piece goes" and
+     "Configuration" describe the template's example transport -->
 A **bridge plugin** for the coraine NGSI-LD broker: `tmpl.so`, a working bridge with a tiny example
 transport, to be turned into a real one - OPC UA, CKAN, Philips Hue, anything the broker does not
 speak. It builds, loads into a broker, and carries a value each way before a line of its own is
@@ -8,12 +10,15 @@ written.
 <!-- template:start -->
 ## Starting a bridge from this template
 
-    cp -r corBridgeTemplate corOpcuaBridge && cd corOpcuaBridge   # or a fresh clone / export
+    mkdir corOpcuaBridge && git -C corBridgeTemplate archive HEAD | tar -x -C corOpcuaBridge
+    cd corOpcuaBridge && git init -b main
     ./rename.sh opcua             # tmpl -> opcua everywhere: opcua.so, src/opcuaRegister.c, ...
     make && make test             # builds, and a broker moves a value both ways through it
-    grep -rn TODO makefile src test   # where the protocol goes
+    grep -rn --exclude-dir=.git TODO .   # where the protocol goes - the README and the CI too
 
 `rename.sh` takes the bridge's alias: lowercase letters and digits. It removes this section and itself.
+An export, not a copy of the checkout: `cp -r` takes the template's `.git` along - its history, and an
+`origin` that pushes to corBridgeTemplate (`rename.sh` warns about that).
 <!-- template:end -->
 
 ## What a bridge is
@@ -30,6 +35,12 @@ A bridge connects the broker to a foreign transport. It **knows nothing about en
 - **Channel** - *this endpoint <-> this entity attribute, this direction*. Channels live in the
   broker, which configures them from the `--bridgeConfig` file and shows them on
   `GET /ngsi-ld/v1/channels`. A Channel the bridge refuses stays, `dormant`, with the reason.
+- **DataChannel** - for a transport whose messages are **records** (a CKAN row, a CSV line: one
+  JSON object, one member per column) naming their entity in a column: *this endpoint -> the entities
+  each record makes*, inbound only - the `dataChannels` section of the file, `GET
+  /ngsi-ld/v1/dataChannels` (coraine `COR_FEATURE_DATA_CHANNELS`). Not a Channel; the plugin's side is
+  the same `sampleIn`, one record a call, its time 0 when the record has none (no `observedAt`);
+  corCkanBridge is the example.
 - **Bridge** - one transport instance (one connection, one server), `GET /ngsi-ld/v1/bridges`.
   `--bridges tmpl` loads the plugin; it is never loaded at runtime or inferred from configuration.
 - **In** - a value arrives on an endpoint; the plugin calls `brokerP->sampleIn(alias, endpoint, json,
@@ -50,6 +61,7 @@ offers). In the order the broker uses them:
 | `init(configFile, brokerP)` | broker, late in startup | keeps `brokerP`; reads its member of the `--bridgeConfig` file; brings the transport up |
 | `channelAddInfo(endpoint, kind, direction, info)` | broker | per Channel, after `init`: checks the endpoint and `channelInfo`, subscribes |
 | `brokerP->sampleIn(...)` | the plugin's own | a value arrived |
+| `brokerP->channelStatusIn(...)` | the plugin's own, or inside `channelAddInfo` | ABI 12: a Channel carries, or not and why - shown as its `status` and `statusReason` |
 | `publish(endpoint, json)` | broker, inside the request | hands the value to the transport and returns - must not block |
 | `channelDel(endpoint)` | broker | stops carrying an endpoint (not called yet: Channels come from the file only) |
 | `close()` | broker, at shutdown | returns only when no plugin thread can call `sampleIn` any more |
@@ -58,7 +70,11 @@ offers). In the order the broker uses them:
 - **NULL means "not supported".** A slot the plugin leaves NULL is answered `BRIDGE_UNSUPPORTED` by
   the broker. Optional slots: `args` (command-line options of the plugin's own), services and actions
   (ABI 2-4), `notifySchemes` + `notify` (notifications to a URI scheme - corMqttBridge), Service
-  Execution (ABI 11).
+  Execution (ABI 11) - and `publish`, for a bridge that only reads (its Channels inbound).
+- **Why a Channel is dormant** is the plugin's to say: through `channelStatusIn` (ABI 12) before
+  `channelAddInfo` refuses it, and at any time after - a peer that does not have the endpoint, a peer
+  that cannot be reached. Without it, `GET /ngsi-ld/v1/channels` shows only the broker's "its address
+  or channelInfo does not fit the transport", and anything learned later shows nowhere but the log.
 - **The ABI handshake.** The broker zeroes the driver, writes *its* `BRIDGE_ABI_VERSION` into
   `abiVersion` and calls `bridgeRegister`. The struct is the broker's, at the size of its header: the
   plugin fills in only the slots that version has (`channelAddInfo` from ABI 9), then writes its own
@@ -100,6 +116,9 @@ broker's - it makes the Channels; everything else in the member is the plugin's.
 
 - A Channel's direction is `both` and every configured attribute exists from startup, with the value
   `"uninitialized"` until the first sample.
+- The **catch-all entity** is on unless the section says `"defaultEntity": false`: a sample on an
+  endpoint no Channel claims is stored on `urn:ngsi-ld:tmpl:default`. A transport that hands over only
+  the endpoints it was given never reaches it; one that hands over everything it hears does.
 - `channelInfo` - how to read or carry one endpoint - is checked by the broker for its shape (an array
   of `{"key", "value"}` strings) and never for its keys: an unknown key is the plugin's to refuse
   (`BRIDGE_BAD_INPUT`).
@@ -126,7 +145,9 @@ a broker built with `coraine-build <dir>`: `make COR_LIBS=<dir>`, and
 
 Starts `coraine` (from `PATH`: the coraine package, or `. <dir>/install/env` after `coraine-build`) on
 port 19026 with ramDB - no database server - loads `./tmpl.so` by path, and runs
-`test/funcTests/cases/*.test` with corTest (`PATH`, or `CORTEST=`). `TMPL_BROKER`, `TMPL_PORT` and
+`test/funcTests/cases/*.test` with corTest (`PATH`, or `CORTEST=`), with `COR_TEST_NO_REAP=on`:
+corTest's start-up reaping is for coraine's own suite - it kills every `coraine` process on the host -
+and these tests stop their broker by its pid. `TMPL_BROKER`, `TMPL_PORT` and
 `TMPL_TEST_DIR` override; the broker's log is `/tmp/tmpl-bridge-test/broker.log`.
 
 ## Running

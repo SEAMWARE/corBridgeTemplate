@@ -78,10 +78,11 @@ extern void tmplTransportClose(void);
 // tmplTransportEndpointAdd - start carrying an endpoint
 //
 // @param text  the endpoint carries plain text, not JSON: an arriving value becomes a JSON string
+// @param whyP  on a refusal, why - one line for a person, static text
 //
 // @return BRIDGE_OK, BRIDGE_BAD_INPUT (not an endpoint of this transport) or BRIDGE_ERR
 //
-extern int tmplTransportEndpointAdd(const char* endpoint, BridgeDirection direction, bool text);
+extern int tmplTransportEndpointAdd(const char* endpoint, BridgeDirection direction, bool text, const char** whyP);
 
 
 

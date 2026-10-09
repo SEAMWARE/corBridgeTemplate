@@ -114,8 +114,12 @@ contract: | $(COR_LIBS)/corBridge/BridgeDriver.h
 #
 CORTEST      ?= $(shell command -v corTest || echo $(COR_LIBS)/corTest/corTest)
 
+# COR_TEST_NO_REAP=on: corTest's start-up reaping (killall -9 coraine, and coraine's mock clients) is
+# for coraine's own suite - here it would take down every broker on the host. These tests stop their
+# own broker by pid.
+#
 test: all
-	$(CORTEST) --noColor
+	COR_TEST_NO_REAP=on $(CORTEST) --noColor
 
 clean:
 	rm -f src/*.o src/*.d *.so *~ .flags

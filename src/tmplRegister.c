@@ -243,6 +243,29 @@ static bool channelInfoText(const char* info, bool* textP, const char** whyP)
 
 // -----------------------------------------------------------------------------
 //
+// channelRefused - say on the Channel why it is not carried: GET /ngsi-ld/v1/channels shows it
+//
+// channelStatusIn (ABI 12) - from inside channelAddInfo, before it refuses, or at any time later from a
+// thread of the plugin's own: a peer that turns out not to have the endpoint, one that cannot be
+// reached (BridgeChannelDormant), one that is back (BridgeChannelAvailable). Built against corBridge
+// headers from before ABI 12, or loaded by a broker without it, the reason is in the log only and the
+// Channel shows the broker's own words.
+//
+static void channelRefused(const char* endpoint, const char* why)
+{
+#if BRIDGE_ABI_VERSION >= 12
+  if ((brokerP != NULL) && (brokerP->abiVersion >= 12) && (brokerP->channelStatusIn != NULL))
+    brokerP->channelStatusIn("tmpl", endpoint, BridgeChannelDormant, why);
+#else
+  (void) endpoint;
+  (void) why;
+#endif
+}
+
+
+
+// -----------------------------------------------------------------------------
+//
 // tmplChannelAddInfo - start carrying an endpoint, ABI 9
 //
 // Once per Channel, after init. For BridgeDirectionIn or Both the plugin subscribes and calls sampleIn
@@ -258,16 +281,26 @@ static int tmplChannelAddInfo(const char* endpoint, BridgeChannelKind kind, Brid
   if (kind != BridgeChannelTopic)
   {
     COR_E("tmpl: '%s': this bridge carries topics only", endpoint);
+    channelRefused(endpoint, "this bridge carries topics only");
     return BRIDGE_UNSUPPORTED;
   }
 
   if (channelInfoText(info, &text, &why) == false)
   {
-    COR_E("tmpl: '%s': %s", endpoint, (why != NULL) ? why : "channelInfo is not an array of {key, value}");
+    if (why == NULL)
+      why = "channelInfo is not an array of {key, value}";
+
+    COR_E("tmpl: '%s': %s", endpoint, why);
+    channelRefused(endpoint, why);
     return BRIDGE_BAD_INPUT;
   }
 
-  return tmplTransportEndpointAdd(endpoint, direction, text);
+  int r = tmplTransportEndpointAdd(endpoint, direction, text, &why);
+
+  if (r != BRIDGE_OK)
+    channelRefused(endpoint, (why != NULL) ? why : "the transport would not carry it");
+
+  return r;
 }
 
 
