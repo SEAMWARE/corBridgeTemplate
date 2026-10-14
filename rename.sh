@@ -32,6 +32,15 @@ self=$(basename "$0")
 
 [ -f src/tmplRegister.c ] || { echo "$0: no src/tmplRegister.c - renamed already?" >&2; exit 1; }
 
+#
+# A copy of the template's checkout carries its .git: the template's history, and an origin that pushes
+# to corBridgeTemplate
+#
+if origin=$(git config --get remote.origin.url 2>/dev/null) && [[ "$origin" == *corBridgeTemplate* ]]; then
+  echo "$0: warning: this checkout's origin is the template ($origin) - a push goes there." >&2
+  echo "  start from an export instead: git -C corBridgeTemplate archive HEAD | tar -x -C <new dir>; git init" >&2
+fi
+
 Name="$(tr '[:lower:]' '[:upper:]' <<< "${name:0:1}")${name:1}"
 NAME=$(tr '[:lower:]' '[:upper:]' <<< "$name")
 repo="cor${Name}Bridge"
