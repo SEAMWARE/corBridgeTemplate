@@ -3,7 +3,7 @@
 <!-- TODO: what this bridge carries, from where - this paragraph, "Where each piece goes" and
      "Configuration" describe the template's example transport -->
 A **bridge plugin** for the coraine NGSI-LD broker: `tmpl.so`, a working bridge with a tiny example
-transport, to be turned into a real one - OPC UA, CKAN, Philips Hue, anything the broker does not
+transport, to be turned into a real one - OPC UA, CKAN, LoRaWAN, anything the broker does not
 speak. It builds, loads into a broker, and carries a value each way before a line of its own is
 written.
 
