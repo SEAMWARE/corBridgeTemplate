@@ -18,7 +18,7 @@ set -euo pipefail
 
 name=${1:-}
 if ! [[ "$name" =~ ^[a-z][a-z0-9]*$ ]]; then
-  echo "usage: $0 <name> - lowercase letters and digits, starting with a letter (e.g. opcua, ckan, hue)" >&2
+  echo "usage: $0 <name> - lowercase letters and digits, starting with a letter (e.g. opcua, ckan, lorawan)" >&2
   exit 1
 fi
 
