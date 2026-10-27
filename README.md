@@ -57,7 +57,7 @@ offers). In the order the broker uses them:
 
 | entry point | thread | what the plugin does |
 |---|---|---|
-| `bridgeRegister(BridgeDriver*)` | broker, at load | the one exported symbol: fills in the driver - alias, version, the entry points it has |
+| `bridgeRegister(BridgeDriver*)` | broker, at load | the symbol the broker looks for (the .so exports `corNodeLayout` too, from `corTree/CorNode.h`): fills in the driver - alias, version, the entry points it has |
 | `init(configFile, brokerP)` | broker, late in startup | keeps `brokerP`; reads its member of the `--bridgeConfig` file; brings the transport up |
 | `channelAddInfo(endpoint, kind, direction, info)` | broker | per Channel, after `init`: checks the endpoint and `channelInfo`, subscribes |
 | `brokerP->sampleIn(...)` | the plugin's own | a value arrived |
