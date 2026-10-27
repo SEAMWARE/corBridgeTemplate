@@ -72,9 +72,9 @@ static const BridgeBroker* brokerP = NULL;
 // BRIDGE_NOT_FOUND is not an error: nothing claims the endpoint. BRIDGE_BAD_INPUT is a payload that is
 // not JSON - the broker has logged it and dropped the value.
 //
-// ⚠ json is a copy the transport made for this call and frees after it - never a string literal, and
-// never a buffer it reads again: coraine up to 0.4.0 parses the text IN PLACE, although the contract
-// says the plugin's text is left alone.
+// json is the transport's, a copy made for this call and freed after it. The broker leaves it alone - it
+// parses a copy of its own - but coraine 0.4.0 and older parse the text IN PLACE, so it is never a string
+// literal nor a buffer the transport reads again.
 //
 static void tmplReceive(const char* endpoint, const char* json, int64_t timeNs)
 {
@@ -357,16 +357,17 @@ static const char* tmplVersionInfo(void)
 
 // -----------------------------------------------------------------------------
 //
-// bridgeRegister - the one symbol the broker looks for, and the one this .so exports
+// bridgeRegister - the one symbol the broker looks for
 //
-// Everything else is hidden (-fvisibility=hidden in the makefile). A plugin written in C++ declares
+// The .so exports it and corNodeLayout - weak, defined by corTree/CorNode.h, which the broker checks when
+// it opens the plugin. Everything else is hidden (-fvisibility=hidden in the makefile). A plugin written in C++ declares
 // it extern "C", or the broker's dlsym does not find it.
 //
 // The broker zeroes the struct, writes ITS BRIDGE_ABI_VERSION into abiVersion, and calls this. The struct
 // is the broker's, allocated at the size of ITS header: a slot newer than the broker is not there, so a
 // slot is filled only when the broker's abiVersion has it. A slot left NULL means "not supported".
-// abiVersion is then overwritten with this plugin's - the broker logs a mismatch and shows it in
-// GET /version.
+// abiVersion is then overwritten with this plugin's - the broker logs a mismatch (an INFO line) and treats
+// the slots newer than the plugin as not supported.
 //
 // Not filled here, all optional: args (command-line options of the plugin's own), the service and
 // action entry points (ABI 2-4), notifySchemes + notify (ABI 10, notifications to a URI scheme of the
